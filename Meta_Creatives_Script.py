@@ -1,360 +1,323 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": 1,
-   "id": "6b3b9ad4-64c3-40ec-ad2c-8173f88cedab",
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stdout",
-     "output_type": "stream",
-     "text": [
-      "🚀 Starting Final Meta Report...\n",
-      "Fetching data for: act_440162118348238\n",
-      "Fetching data for: act_1719931635154497\n",
-      "Fetching data for: act_718781920169137\n",
-      "Fetching data for: act_701631941903775\n",
-      "Fetching data for: act_1501970208143735\n",
-      "Fetching data for: act_1315886119065844\n",
-      "Fetching data for: act_336496342055409\n",
-      "Fetching data for: act_636982851281381\n",
-      "Fetching data for: act_3013682562268050\n",
-      "Fetching data for: act_999222314375640\n",
-      "Fetching data for: act_584043403558805\n",
-      "Fetching data for: act_441229168101305\n",
-      "Fetching data for: act_241562334\n",
-      "Fetching data for: act_750729814964276\n",
-      "Fetching creatives...\n",
-      "Fetching status...\n",
-      "✅ Done Successfully!\n"
-     ]
-    }
-   ],
-   "source": [
-    "# ============================================================\n",
-    "# META CREATIVE REPORT SCRIPT (FINAL PRODUCTION VERSION)\n",
-    "# ============================================================\n",
-    "\n",
-    "import requests\n",
-    "import pandas as pd\n",
-    "import time\n",
-    "import gspread\n",
-    "from google.oauth2.service_account import Credentials\n",
-    "from concurrent.futures import ThreadPoolExecutor, as_completed\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# CONFIG\n",
-    "# =========================\n",
-    "ACCESS_TOKEN = \"EAAHKYZBFiGZCoBQz5f6iCWOZBBmKt5Mm0neEsrqX36cZBhz039hz8ur8d3JZCldzVKLrZByQj233n7NMGDoDO3JZACefKMVD3UhGKFBtmi5wwyZCphr1I6xYBYXY0mnnQIMporwu7BYZA8by4LQHyZCCVGdpf0pZBquDBSa5R3ls388LDaZCa5brMmYl21tj6PxuudnP\"\n",
-    "BASE_URL = \"https://graph.facebook.com/v18.0\"\n",
-    "\n",
-    "AD_ACCOUNTS = [\n",
-    "    \"act_440162118348238\",\n",
-    "    \"act_1719931635154497\",\n",
-    "    \"act_718781920169137\",\n",
-    "    \"act_701631941903775\",\n",
-    "    \"act_1501970208143735\",\n",
-    "    \"act_1315886119065844\",\n",
-    "    \"act_336496342055409\",\n",
-    "    \"act_636982851281381\",\n",
-    "    \"act_3013682562268050\",\n",
-    "    \"act_999222314375640\",\n",
-    "    \"act_584043403558805\",\n",
-    "    \"act_441229168101305\",\n",
-    "    \"act_241562334\",\n",
-    "    \"act_750729814964276\"\n",
-    "]\n",
-    "\n",
-    "FIELDS = [\n",
-    "    \"date_start\",\n",
-    "    \"campaign_name\",\n",
-    "    \"ad_name\",\n",
-    "    \"adset_name\",\n",
-    "    \"ad_id\",\n",
-    "    \"spend\",\n",
-    "    \"impressions\",\n",
-    "    \"clicks\",\n",
-    "    \"cpm\",\n",
-    "    \"ctr\",\n",
-    "    \"reach\"\n",
-    "]\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# SAFE REQUEST (RETRY LOGIC)\n",
-    "# =========================\n",
-    "def safe_request(url, params=None, retries=3):\n",
-    "\n",
-    "    for attempt in range(retries):\n",
-    "        try:\n",
-    "            res = requests.get(url, params=params, timeout=30).json()\n",
-    "\n",
-    "            if \"error\" in res:\n",
-    "                print(f\"⚠️ Attempt {attempt+1}:\", res)\n",
-    "\n",
-    "                if attempt < retries - 1:\n",
-    "                    time.sleep(5)\n",
-    "                    continue\n",
-    "                else:\n",
-    "                    return None\n",
-    "            return res\n",
-    "\n",
-    "        except Exception as e:\n",
-    "            if attempt < retries - 1:\n",
-    "                time.sleep(5)\n",
-    "            else:\n",
-    "                print(\"❌ Request failed:\", e)\n",
-    "                return None\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# FETCH INSIGHTS (DAILY)\n",
-    "# =========================\n",
-    "def fetch_insights(account_id):\n",
-    "\n",
-    "    url = f\"{BASE_URL}/{account_id}/insights\"\n",
-    "\n",
-    "    params = {\n",
-    "        \"fields\": \",\".join(FIELDS),\n",
-    "        \"level\": \"ad\",\n",
-    "        \"time_increment\": 1,\n",
-    "        \"limit\": 500,\n",
-    "        \"time_range\": '{\"since\":\"2026-03-01\",\"until\":\"2026-03-24\"}',\n",
-    "        \"access_token\": ACCESS_TOKEN\n",
-    "    }\n",
-    "\n",
-    "    all_data = []\n",
-    "\n",
-    "    while True:\n",
-    "\n",
-    "        data = safe_request(url, params)\n",
-    "\n",
-    "        if not data:\n",
-    "            break\n",
-    "\n",
-    "        all_data.extend(data.get(\"data\", []))\n",
-    "\n",
-    "        if \"next\" in data.get(\"paging\", {}):\n",
-    "            url = data[\"paging\"][\"next\"]\n",
-    "            params = None\n",
-    "        else:\n",
-    "            break\n",
-    "\n",
-    "        time.sleep(0.5)\n",
-    "\n",
-    "    return all_data\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# FETCH CREATIVES (FAST)\n",
-    "# =========================\n",
-    "def fetch_creatives(ad_ids):\n",
-    "\n",
-    "    creative_map = {}\n",
-    "\n",
-    "    def worker(ad_id):\n",
-    "        url = f\"{BASE_URL}/{ad_id}\"\n",
-    "        params = {\n",
-    "            \"fields\": \"adcreatives{image_url,thumbnail_url}\",\n",
-    "            \"access_token\": ACCESS_TOKEN\n",
-    "        }\n",
-    "\n",
-    "        res = safe_request(url, params)\n",
-    "\n",
-    "        try:\n",
-    "            creative = res[\"adcreatives\"][\"data\"][0]\n",
-    "            return ad_id, creative.get(\"image_url\") or creative.get(\"thumbnail_url\")\n",
-    "        except:\n",
-    "            return ad_id, None\n",
-    "\n",
-    "    with ThreadPoolExecutor(max_workers=10) as executor:\n",
-    "        results = executor.map(worker, ad_ids)\n",
-    "\n",
-    "    for ad_id, url in results:\n",
-    "        creative_map[ad_id] = url\n",
-    "\n",
-    "    return creative_map\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# FETCH STATUS (FAST)\n",
-    "# =========================\n",
-    "def fetch_status(ad_ids):\n",
-    "\n",
-    "    status_map = {}\n",
-    "\n",
-    "    def worker(ad_id):\n",
-    "        url = f\"{BASE_URL}/{ad_id}\"\n",
-    "        params = {\n",
-    "            \"fields\": \"effective_status\",\n",
-    "            \"access_token\": ACCESS_TOKEN\n",
-    "        }\n",
-    "\n",
-    "        res = safe_request(url, params)\n",
-    "        return ad_id, res.get(\"effective_status\") if res else None\n",
-    "\n",
-    "    with ThreadPoolExecutor(max_workers=10) as executor:\n",
-    "        results = executor.map(worker, ad_ids)\n",
-    "\n",
-    "    for ad_id, status in results:\n",
-    "        status_map[ad_id] = status\n",
-    "\n",
-    "    return status_map\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# MAIN PIPELINE\n",
-    "# =========================\n",
-    "def main():\n",
-    "\n",
-    "    all_rows = []\n",
-    "\n",
-    "    for account in AD_ACCOUNTS:\n",
-    "        print(f\"Fetching data for: {account}\")\n",
-    "        data = fetch_insights(account)\n",
-    "        all_rows.extend(data)\n",
-    "\n",
-    "    df = pd.DataFrame(all_rows)\n",
-    "\n",
-    "    if df.empty:\n",
-    "        print(\"❌ No data\")\n",
-    "        return df\n",
-    "\n",
-    "    # Convert numeric\n",
-    "    numeric_cols = [\"spend\", \"impressions\", \"clicks\", \"cpm\", \"ctr\", \"reach\"]\n",
-    "    for col in numeric_cols:\n",
-    "        df[col] = pd.to_numeric(df[col], errors=\"coerce\")\n",
-    "\n",
-    "    # Filter impressions > 0\n",
-    "    df = df[df[\"impressions\"] > 0]\n",
-    "\n",
-    "    ad_ids = df[\"ad_id\"].dropna().unique().tolist()\n",
-    "\n",
-    "    print(\"Fetching creatives...\")\n",
-    "    creative_map = fetch_creatives(ad_ids)\n",
-    "\n",
-    "    print(\"Fetching status...\")\n",
-    "    status_map = fetch_status(ad_ids)\n",
-    "\n",
-    "    df[\"Creative_URL\"] = df[\"ad_id\"].map(creative_map)\n",
-    "    df[\"Status\"] = df[\"ad_id\"].map(status_map)\n",
-    "\n",
-    "    # Rename\n",
-    "    df = df.rename(columns={\n",
-    "        \"date_start\": \"Date\",\n",
-    "        \"campaign_name\": \"Campaign_Name\",\n",
-    "        \"adset_name\": \"Adset_Name\",\n",
-    "        \"ad_name\": \"Ad_Name\",\n",
-    "        \"spend\": \"Spend\",\n",
-    "        \"impressions\": \"Impressions\",\n",
-    "        \"clicks\": \"Clicks\",\n",
-    "        \"cpm\": \"CPM\",\n",
-    "        \"ctr\": \"CTR\",\n",
-    "        \"reach\": \"Reach\"\n",
-    "    })\n",
-    "\n",
-    "    df = df[\n",
-    "        [\n",
-    "            \"Date\",\n",
-    "            \"Campaign_Name\",\n",
-    "            \"Adset_Name\",\n",
-    "            \"Ad_Name\",\n",
-    "            \"Status\",\n",
-    "            \"Creative_URL\",\n",
-    "            \"Spend\",\n",
-    "            \"Impressions\",\n",
-    "            \"Clicks\",\n",
-    "            \"CPM\",\n",
-    "            \"CTR\",\n",
-    "            \"Reach\"\n",
-    "        ]\n",
-    "    ]\n",
-    "\n",
-    "    return df\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# GOOGLE SHEETS\n",
-    "# =========================\n",
-    "def upload_to_gsheet(df):\n",
-    "\n",
-    "    creds = Credentials.from_service_account_file(\n",
-    "        r\"C:\\Users\\Admin\\Documents\\Python_Meta_Creatives\\gsc-data-n8n-aad0b3b8014c.json\",\n",
-    "        scopes=[\n",
-    "            \"https://www.googleapis.com/auth/spreadsheets\",\n",
-    "            \"https://www.googleapis.com/auth/drive\"\n",
-    "        ]\n",
-    "    )\n",
-    "\n",
-    "    client = gspread.authorize(creds)\n",
-    "\n",
-    "    sheet = client.open(\"Meta Creatives Data from Python Script\").sheet1\n",
-    "\n",
-    "    sheet.clear()\n",
-    "\n",
-    "    sheet.update(\n",
-    "        [df.columns.values.tolist()] + df.values.tolist(),\n",
-    "        value_input_option=\"USER_ENTERED\"\n",
-    "    )\n",
-    "\n",
-    "\n",
-    "# =========================\n",
-    "# RUN\n",
-    "# =========================\n",
-    "if __name__ == \"__main__\":\n",
-    "\n",
-    "    print(\"🚀 Starting Final Meta Report...\")\n",
-    "\n",
-    "    df = main()\n",
-    "\n",
-    "    if not df.empty:\n",
-    "        upload_to_gsheet(df)\n",
-    "        print(\"✅ Done Successfully!\")\n",
-    "    else:\n",
-    "        print(\"❌ No data to upload\")"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "3b9854f0-b005-4d2a-b952-4e56625c9678",
-   "metadata": {},
-   "outputs": [],
-   "source": []
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "f54b3c0c-379f-416c-a81b-dcedd7f686cc",
-   "metadata": {},
-   "outputs": [],
-   "source": []
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python [conda env:base] *",
-   "language": "python",
-   "name": "conda-base-py"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.13.9"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
+# ============================================================
+# META CREATIVE REPORT SCRIPT (FINAL - GITHUB READY)
+# ============================================================
+
+import requests
+import pandas as pd
+import time
+import gspread
+import os
+import json
+from google.oauth2.service_account import Credentials
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+
+
+# =========================
+# CONFIG
+# =========================
+
+BASE_URL = "https://graph.facebook.com/v18.0"
+
+INCREMENTAL_MODE = True
+
+# ✅ KEEPING YOUR ORIGINAL TOKENS
+ACCOUNT_TOKEN_MAP = {
+
+    "EAAHKYZBFiGZCoBQz5f6iCWOZBBmKt5Mm0neEsrqX36cZBhz039hz8ur8d3JZCldzVKLrZByQj233n7NMGDoDO3JZACefKMVD3UhGKFBtmi5wwyZCphr1I6xYBYXY0mnnQIMporwu7BYZA8by4LQHyZCCVGdpf0pZBquDBSa5R3ls388LDaZCa5brMmYl21tj6PxuudnP": [
+        "act_440162118348238",
+        "act_1719931635154497",
+        "act_718781920169137",
+        "act_701631941903775",
+        "act_1501970208143735",
+        "act_1315886119065844",
+        "act_336496342055409",
+        "act_636982851281381",
+        "act_3013682562268050",
+        "act_999222314375640",
+        "act_584043403558805",
+        "act_441229168101305",
+        "act_241562334",
+        "act_750729814964276"
+    ],
+
+    "EAAX6VtO5tO8BRGQjZCOmZA5UDfsHa2SzZAvbaLX9X6n36stZAyZA4PBcgZA0ZARdSgrcm6swHYyYq0SXwrZAZBStK3EJIUQLmddCNFvCB2ZA3nPy9Ao2n0hu4MpitzMoanDhXlGGQt1J738vFZBwls5fZCk7o2Q9tZBaPt5HO2dOQU7ZChBPiCNaK8eZBIIeZB8kFpQ4UpXE": [
+        "act_61747633",
+        "act_1638356833183465",
+        "act_375509061368472",
+        "act_575017180766466"
+    ]
 }
 
+FIELDS = [
+    "date_start", "campaign_name", "ad_name", "adset_name",
+    "ad_id", "spend", "impressions", "clicks",
+    "cpm", "ctr", "reach"
+]
 
 
+# =========================
+# SAFE REQUEST
+# =========================
+def safe_request(url, params=None, retries=3):
+    for attempt in range(retries):
+        try:
+            res = requests.get(url, params=params, timeout=30).json()
+
+            if "error" in res:
+                print(f"⚠️ Attempt {attempt+1}:", res)
+                time.sleep(3)
+                continue
+
+            return res
+
+        except Exception as e:
+            print("Request failed:", e)
+            time.sleep(3)
+
+    return None
+
+
+# =========================
+# FETCH INSIGHTS
+# =========================
+def fetch_insights(account_id, token):
+
+    url = f"{BASE_URL}/{account_id}/insights"
+
+    if INCREMENTAL_MODE:
+        yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+        time_range = {"since": yesterday, "until": yesterday}
+    else:
+        time_range = {"since": "2026-04-01", "until": "2026-04-27"}
+
+    params = {
+        "fields": ",".join(FIELDS),
+        "level": "ad",
+        "time_increment": 1,
+        "limit": 500,
+        "time_range": str(time_range).replace("'", '"'),
+        "access_token": token
+    }
+
+    all_data = []
+
+    while True:
+
+        data = safe_request(url, params)
+
+        if not data:
+            break
+
+        all_data.extend(data.get("data", []))
+
+        if "next" in data.get("paging", {}):
+            url = data["paging"]["next"]
+            params = None
+        else:
+            break
+
+        time.sleep(0.3)
+
+    return all_data
+
+
+# =========================
+# FETCH CREATIVES
+# =========================
+def fetch_creatives(ad_ids, token):
+
+    def worker(ad_id):
+        url = f"{BASE_URL}/{ad_id}"
+        params = {
+            "fields": "adcreatives{image_url,thumbnail_url}",
+            "access_token": token
+        }
+
+        res = safe_request(url, params)
+
+        try:
+            creative = res["adcreatives"]["data"][0]
+            return ad_id, creative.get("image_url") or creative.get("thumbnail_url")
+        except:
+            return ad_id, None
+
+    creative_map = {}
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for ad_id, url in executor.map(worker, ad_ids):
+            creative_map[ad_id] = url
+
+    return creative_map
+
+
+# =========================
+# FETCH STATUS
+# =========================
+def fetch_status(ad_ids, token):
+
+    def worker(ad_id):
+        url = f"{BASE_URL}/{ad_id}"
+        params = {
+            "fields": "effective_status",
+            "access_token": token
+        }
+
+        res = safe_request(url, params)
+        return ad_id, res.get("effective_status") if res else None
+
+    status_map = {}
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for ad_id, status in executor.map(worker, ad_ids):
+            status_map[ad_id] = status
+
+    return status_map
+
+
+# =========================
+# MAIN
+# =========================
+def main():
+
+    all_rows = []
+
+    for token, accounts in ACCOUNT_TOKEN_MAP.items():
+
+        print(f"\n🔑 Processing Token: {token[:10]}...")
+
+        for account in accounts:
+
+            print(f"Fetching data for: {account}")
+
+            data = fetch_insights(account, token)
+
+            for row in data:
+                row["token_used"] = token
+
+            all_rows.extend(data)
+
+    df = pd.DataFrame(all_rows)
+
+    if df.empty:
+        print("❌ No data")
+        return df
+
+    numeric_cols = ["spend", "impressions", "clicks", "cpm", "ctr", "reach"]
+
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = df[df["impressions"] > 0]
+
+    print("Fetching creatives & status...")
+
+    creative_map = {}
+    status_map = {}
+
+    for token in df["token_used"].unique():
+
+        token_df = df[df["token_used"] == token]
+
+        ad_ids = token_df["ad_id"].dropna().unique().tolist()
+
+        creative_map.update(fetch_creatives(ad_ids, token))
+        status_map.update(fetch_status(ad_ids, token))
+
+    df["Creative_URL"] = df["ad_id"].map(creative_map)
+    df["Status"] = df["ad_id"].map(status_map)
+
+    df = df.rename(columns={
+        "date_start": "Date",
+        "campaign_name": "Campaign_Name",
+        "adset_name": "Adset_Name",
+        "ad_name": "Ad_Name",
+        "spend": "Spend",
+        "impressions": "Impressions",
+        "clicks": "Clicks",
+        "cpm": "CPM",
+        "ctr": "CTR",
+        "reach": "Reach"
+    })
+
+    df = df[
+        [
+            "Date",
+            "Campaign_Name",
+            "Adset_Name",
+            "Ad_Name",
+            "Status",
+            "Creative_URL",
+            "Spend",
+            "Impressions",
+            "Clicks",
+            "CPM",
+            "CTR",
+            "Reach"
+        ]
+    ]
+
+    return df
+
+
+# =========================
+# GOOGLE SHEETS (FIXED)
+# =========================
+def upload_to_gsheet(df):
+
+    # ✅ FIXED: Use GitHub Secret instead of local file
+    creds_json = os.getenv("GOOGLE_CREDS")
+
+    if not creds_json:
+        raise Exception("❌ GOOGLE_CREDS not found")
+
+    creds_dict = json.loads(creds_json)
+
+    creds = Credentials.from_service_account_info(
+        creds_dict,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+    )
+
+    client = gspread.authorize(creds)
+
+    # ✅ FIXED: Use Sheet2 safely
+    sheet = client.open("Meta Creatives Data from Python Script").worksheet("Sheet2")
+
+    if INCREMENTAL_MODE:
+
+        print("📌 Appending data")
+
+        sheet.append_rows(
+            df.values.tolist(),
+            value_input_option="USER_ENTERED"
+        )
+
+    else:
+
+        print("🔄 Full refresh")
+
+        sheet.clear()
+
+        sheet.update(
+            [df.columns.values.tolist()] + df.values.tolist(),
+            value_input_option="USER_ENTERED"
+        )
+
+
+# =========================
+# RUN
+# =========================
+if __name__ == "__main__":
+
+    print("🚀 Starting Final Meta Report...")
+
+    df = main()
+
+    if not df.empty:
+        upload_to_gsheet(df)
+        print("✅ Done Successfully!")
+    else:
+        print("❌ No data to upload")
