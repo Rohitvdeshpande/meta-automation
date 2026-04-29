@@ -284,7 +284,7 @@ def upload_to_gsheet(df):
     client = gspread.authorize(creds)
 
     # ✅ FIXED: Use Sheet2 safely
-    sheet = client.open("Meta Creatives Data from Python Script").worksheet("Sheet2")
+    sheet = client.open("Meta Creatives Data from Python Script").worksheet("Sheet1")
 
     if INCREMENTAL_MODE:
 
