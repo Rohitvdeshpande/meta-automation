@@ -185,7 +185,7 @@ def upload_to_gsheet(df):
 
     sheet = client.open_by_url(
         "https://docs.google.com/spreadsheets/d/1g8RmdoWssZmm00qkAokA-UjR2nhlcVakmwSpN-DF6xU/edit"
-    ).worksheet("Sheet2")   # 🔥 CHANGE HERE IF NEEDED
+    ).worksheet("Sheet1")   # 🔥 CHANGE HERE IF NEEDED
 
     if INCREMENTAL_MODE:
         sheet.append_rows(df.values.tolist(), value_input_option="USER_ENTERED")
