@@ -2,7 +2,7 @@ name: Run Python Script Daily
 
 on:
   schedule:
-    - cron: '30 3 * * *'   # 9:00 AM IST
+    - cron: '30 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -21,7 +21,6 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests gspread google-auth
 
-      # ✅ RUN BOTH SCRIPTS
       - name: Run scripts
         env:
           GOOGLE_CREDS: ${{ secrets.GOOGLE_CREDS }}
