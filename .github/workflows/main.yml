@@ -21,8 +21,10 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests gspread google-auth
 
-      # ✅ FIXED: Pass GOOGLE_CREDS to Python
-      - name: Run script
+      # ✅ RUN BOTH SCRIPTS
+      - name: Run scripts
         env:
           GOOGLE_CREDS: ${{ secrets.GOOGLE_CREDS }}
-        run: python Meta_Creatives_Script.py
+        run: |
+          python Meta_Creatives_Script.py
+          python Meta_Spends_Script.py
