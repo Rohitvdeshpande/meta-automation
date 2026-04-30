@@ -1,8 +1,11 @@
-name: Run Python Script Daily
+name: Run Python Scripts
 
 on:
+  # Keep cron if you still want backup scheduling
   schedule:
     - cron: '30 3 * * *'
+
+  # Required for n8n / manual trigger
   workflow_dispatch:
 
 jobs:
@@ -19,7 +22,12 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install pandas requests gspread google-auth
+        run: |
+          pip install pandas requests gspread google-auth
+
+      # Optional but useful for debugging
+      - name: Debug start
+        run: echo "Starting scripts..."
 
       - name: Run scripts
         env:
@@ -27,3 +35,7 @@ jobs:
         run: |
           python Meta_Creatives_Script.py
           python Meta_Spends_Script.py
+
+      # Optional debug end
+      - name: Debug end
+        run: echo "Scripts completed"
