@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 BASE_URL = "https://graph.facebook.com/v18.0"
 
-INCREMENTAL_MODE = True
+INCREMENTAL_MODE = False
 
 # ✅ KEEPING YOUR ORIGINAL TOKENS
 ACCOUNT_TOKEN_MAP = {
@@ -89,7 +89,7 @@ def fetch_insights(account_id, token):
         yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
         time_range = {"since": yesterday, "until": yesterday}
     else:
-        time_range = {"since": "2026-05-01", "until": "2026-05-17"}
+        time_range = {"since": "2026-05-01", "until": "2026-05-24"}
 
     params = {
         "fields": ",".join(FIELDS),
