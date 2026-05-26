@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 BASE_URL = "https://graph.facebook.com/v18.0"
 
-INCREMENTAL_MODE = False
+INCREMENTAL_MODE = True
 
 # ✅ KEEPING YOUR ORIGINAL TOKENS
 ACCOUNT_TOKEN_MAP = {
